@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - admin
+      - api
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.web
+    restart: always
+    ports:
+      - "3000:3000"
+
+  admin:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.admin
+    restart: always
+    ports:
+      - "3001:3001"
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    restart: always
+    ports:
+      - "3002:3000"
+
+volumes:
+  caddy_data:
+  caddy_config:

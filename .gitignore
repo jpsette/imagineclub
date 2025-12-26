@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.*
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# build outputs
+.next/
+dist/
+build/
+out/
+
+# OS
+.DS_Store
+
+# turborepo cache
+.turbo/
