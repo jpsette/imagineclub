@@ -1,19 +1,19 @@
 {
-    # Global options
-    # email your-email@example.com
+	# Global options
+	# email your-email@example.com
 }
 
 # Web App
-imagine.club, localhost:80 {
-    reverse_proxy web:3000
+imagine.club {
+	reverse_proxy web:3000
 }
 
 # Admin App
-admin.imagine.club, admin.localhost:80 {
-    reverse_proxy admin:3001
+admin.imagine.club {
+	reverse_proxy admin:3001
 }
 
 # API
-api.imagine.club, api.localhost:80 {
-    reverse_proxy api:3000
+api.imagine.club {
+	reverse_proxy api:3000
 }

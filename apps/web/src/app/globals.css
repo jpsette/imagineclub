@@ -62,3 +62,60 @@ a {
     background-color: transparent;
     color: var(--text-primary);
 }
+/* =========================
+   Antigravity Layout System
+   ========================= */
+
+/* Typography helpers */
+.h1 { font-size: var(--font-size-5xl); font-weight: var(--font-weight-bold); line-height: 1.1; }
+.h2 { font-size: var(--font-size-4xl); font-weight: var(--font-weight-bold); line-height: 1.15; }
+.h3 { font-size: var(--font-size-2xl); font-weight: var(--font-weight-semibold); line-height: 1.25; }
+.p-lead { font-size: var(--font-size-lg); color: var(--text-secondary); }
+
+/* Spacing helpers */
+.mt-1 { margin-top: var(--spacing-1); }
+.mt-2 { margin-top: var(--spacing-2); }
+.mt-3 { margin-top: var(--spacing-3); }
+.mb-1 { margin-bottom: var(--spacing-1); }
+.mb-2 { margin-bottom: var(--spacing-2); }
+.mb-3 { margin-bottom: var(--spacing-3); }
+
+/* Layout primitives */
+.stack { display: flex; flex-direction: column; gap: var(--spacing-3); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--spacing-2); }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-2); }
+
+.grid { display: grid; gap: var(--spacing-3); }
+.grid-cards { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+/* Surfaces */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-3);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: rgba(99,102,241,0.10);
+  color: var(--color-primary);
+}
+
+/* Sections */
+.section {
+  padding: var(--spacing-6) 0;
+}
+
+.hero {
+  text-align: center;
+  padding: var(--spacing-8) 0 var(--spacing-6);
+}
+
