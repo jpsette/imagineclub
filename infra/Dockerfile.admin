@@ -1,0 +1,35 @@
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN npm ci
+RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
+
+COPY --from=builder /app/apps/admin/package.json ./apps/admin/package.json
+COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
+# Admin doesn't have public folder yet but good practice
+# COPY --from=builder /app/apps/admin/public ./apps/admin/public 
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/admin/node_modules ./apps/admin/node_modules
+# Copy docs needed for admin
+COPY --from=builder /app/docs ./docs
+COPY --from=builder /app/README.md ./README.md
+COPY --from=builder /app/UI_RULES.md ./UI_RULES.md
+COPY --from=builder /app/MONOREPO.md ./MONOREPO.md
+
+USER nextjs
+
+EXPOSE 3001
+
+ENV PORT 3001
+
+CMD ["npm", "start", "--workspace=@imagineclub/admin"]

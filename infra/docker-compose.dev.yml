@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - admin
+      - api
+
+  # Web App (Next.js)
+  web:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/packages/shared/node_modules
+    command: npm run dev --workspace=@imagineclub/web
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+
+  # Admin App (Next.js)
+  admin:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/apps/admin/node_modules
+      - /app/packages/shared/node_modules
+    command: npm run dev --workspace=@imagineclub/admin
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3001:3001"
+
+  # API (Fastify)
+  api:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/packages/shared/node_modules
+    command: npm run dev --workspace=api
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3002:3000" # Maps internal 3000 to external 3002
+
+volumes:
+  caddy_data:
+  caddy_config:
