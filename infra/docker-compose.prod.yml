@@ -26,6 +26,8 @@ services:
       context: ..
       dockerfile: infra/Dockerfile.admin
     restart: always
+    env_file:
+      - ./.env.prod
 
   api:
     build:
