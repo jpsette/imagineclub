@@ -4,17 +4,21 @@
     "private": true,
     "scripts": {
         "dev": "tsx watch src/app.ts",
-        "build": "tsc",
+        "build": "NODE_OPTIONS=--max-old-space-size=2048 tsc",
         "start": "node dist/app.js",
         "lint": "eslint src/**"
     },
     "dependencies": {
         "@fastify/cors": "^8.5.0",
+        "@imagineclub/shared": "*",
+        "drizzle-orm": "^0.45.1",
         "fastify": "^4.25.1",
-        "@imagineclub/shared": "*"
+        "pg": "^8.16.3"
     },
     "devDependencies": {
         "@types/node": "^20.10.0",
+        "@types/pg": "^8.16.0",
+        "drizzle-kit": "^0.31.8",
         "tsx": "^4.6.2",
         "typescript": "^5.3.3"
     }

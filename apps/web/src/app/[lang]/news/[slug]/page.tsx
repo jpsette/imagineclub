@@ -1,87 +1,63 @@
-import { fetchAPI } from '../../../../lib/api';
-import Link from 'next/link';
+type NewsItem = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string | null;
+  coverImageUrl: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+};
 
-// Helper to fetch data
-async function getPost(slug: string) {
-    try {
-        const data = await fetchAPI(`/news/${slug}`, { next: { revalidate: 60 } });
-        return data;
-    } catch (error) {
-        return null;
-    }
+async function fetchPost(slug: string): Promise<NewsItem | null> {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://api:3000";
+  const res = await fetch(`${base}/news/${encodeURIComponent(slug)}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return (await res.json()) as NewsItem;
 }
 
-export default async function PostPage({ params }: { params: { slug: string, lang: string } }) {
-    const post = await getPost(params.slug);
+export default async function Page({
+  params,
+}: {
+  params: { lang: "en" | "pt"; slug: string };
+}) {
+  const lang = params.lang || "pt";
+  const post = await fetchPost(params.slug);
 
-    if (!post) {
-        return (
-            <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
-                <h1 style={{ fontSize: '32px', marginBottom: '16px' }}>Post Not Found</h1>
-                <Link href={`/${params.lang}`} style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>Return Home</Link>
-            </div>
-        );
-    }
-
+  if (!post) {
     return (
-        <div className="container" style={{ maxWidth: '800px' }}>
-            <header style={{ padding: '24px 0', marginBottom: '64px', borderBottom: '1px solid #e5e7eb' }}>
-                <Link href={`/${params.lang}`} style={{ fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    ← Back
-                </Link>
-            </header>
-
-            <article>
-                <span style={{
-                    display: 'block',
-                    color: 'var(--color-primary)',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    marginBottom: '16px'
-                }}>
-                    {post.featured ? 'Featured Story' : 'News'}
-                </span>
-
-                <h1 style={{
-                    fontSize: '48px',
-                    fontWeight: 800,
-                    lineHeight: 1.1,
-                    letterSpacing: '-0.02em',
-                    marginBottom: '32px',
-                    color: 'var(--text-primary)'
-                }}>
-                    {post.title}
-                </h1>
-
-                <p style={{
-                    fontSize: '24px',
-                    lineHeight: 1.6,
-                    color: 'var(--text-secondary)',
-                    marginBottom: '48px',
-                    fontStyle: 'italic'
-                }}>
-                    {post.excerpt}
-                </p>
-
-                <div
-                    style={{
-                        fontSize: '18px',
-                        lineHeight: 1.8,
-                        color: '#374151'
-                    }}
-                >
-                    {/* Simple rendering for MVP; ideally use a Markdown renderer if content is complex */}
-                    {post.content.split('\n').map((paragraph: string, idx: number) => (
-                        paragraph ? <p key={idx} style={{ marginBottom: '24px' }}>{paragraph}</p> : null
-                    ))}
-                </div>
-            </article>
-
-            <footer style={{ marginTop: '80px', paddingTop: '40px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
-                <p style={{ color: '#9ca3af', fontSize: '14px' }}>Published on {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</p>
-            </footer>
-        </div>
+      <div className="container" style={{ padding: "40px 0" }}>
+        <a href={`/${lang}`} className="btn btn-ghost">
+          ← Voltar
+        </a>
+        <h1 style={{ marginTop: 16 }}>Notícia não encontrada</h1>
+      </div>
     );
+  }
+
+  return (
+    <div className="container" style={{ padding: "40px 0" }}>
+      <a href={`/${lang}`} className="btn btn-ghost">
+        ← Voltar
+      </a>
+
+      <h1 style={{ fontSize: "42px", marginTop: 18, marginBottom: 10 }}>{post.title}</h1>
+
+      {post.excerpt ? (
+        <p style={{ fontSize: "18px", color: "var(--text-secondary)", marginBottom: 24 }}>{post.excerpt}</p>
+      ) : null}
+
+      {post.content ? (
+        <div style={{ lineHeight: 1.7, fontSize: "18px" }}>
+          {post.content.split("\n").map((line, i) => (
+            <p key={i} style={{ marginBottom: 12 }}>
+              {line}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p style={{ color: "var(--text-secondary)" }}>Sem conteúdo.</p>
+      )}
+    </div>
+  );
 }

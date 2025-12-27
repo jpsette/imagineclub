@@ -26,7 +26,7 @@ services:
       - /app/node_modules
       - /app/apps/web/node_modules
       - /app/packages/shared/node_modules
-    command: npm run dev --workspace=@imagineclub/web
+    command: npm run dev --workspace=web
     environment:
       - NODE_ENV=development
     ports:
@@ -41,7 +41,7 @@ services:
       - /app/node_modules
       - /app/apps/admin/node_modules
       - /app/packages/shared/node_modules
-    command: npm run dev --workspace=@imagineclub/admin
+    command: npm run dev --workspace=admin
     environment:
       - NODE_ENV=development
     ports:

@@ -1,54 +1,44 @@
-import 'server-only';
+type Json =
+  | Record<string, unknown>
+  | unknown[]
+  | string
+  | number
+  | boolean
+  | null;
 
-export function getApiBaseUrl() {
-    // Docker internal DNS uses 'api' as hostname on port 3000
-    // Externally (browser) it might be different, but this file is server-only.
-    return process.env.API_URL || 'http://api:3000';
+function getBaseUrl() {
+  // Dentro do Docker Compose, o host "api" resolve via rede interna
+  return process.env.API_URL || 'http://api:3000';
 }
 
-export async function publicFetch(path: string, init?: RequestInit) {
-    const url = `${getApiBaseUrl()}${path}`;
-    console.log(`[Admin] Fetching public: ${url}`);
+async function fetchJson<T = Json>(path: string, init: RequestInit = {}): Promise<T> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}${path}`, {
+    ...init,
+    cache: 'no-store',
+  });
 
-    const res = await fetch(url, {
-        ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            ...init?.headers,
-        },
-        cache: 'no-store', // Always fresh data for admin
-    });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status}: ${text || res.statusText}`);
+  }
 
-    if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || `API request failed: ${res.status}`);
-    }
-
-    return res.json();
+  return (await res.json()) as T;
 }
 
-export async function adminFetch(path: string, init?: RequestInit) {
-    const token = process.env.ADMIN_TOKEN;
-    if (!token) {
-        throw new Error('Server configuration error: ADMIN_TOKEN missing');
-    }
+export async function publicFetch<T = Json>(path: string): Promise<T> {
+  return fetchJson<T>(path);
+}
 
-    const url = `${getApiBaseUrl()}${path}`;
-    console.log(`[Admin] Fetching admin: ${url}`);
+export async function adminFetch<T = Json>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = process.env.ADMIN_TOKEN || '';
+  if (!token) throw new Error('ADMIN_TOKEN is not set in admin environment');
 
-    const res = await fetch(url, {
-        ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            'x-admin-token': token,
-            ...init?.headers,
-        },
-    });
-
-    if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || `Admin API request failed: ${res.status}`);
-    }
-
-    return res.json();
+  return fetchJson<T>(path, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      'x-admin-token': token,
+    },
+  });
 }

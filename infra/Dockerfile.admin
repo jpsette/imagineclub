@@ -19,7 +19,6 @@ COPY --from=builder /app/apps/admin/.next ./apps/admin/.next
 # Admin doesn't have public folder yet but good practice
 # COPY --from=builder /app/apps/admin/public ./apps/admin/public 
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/admin/node_modules ./apps/admin/node_modules
 # Copy docs needed for admin
 COPY --from=builder /app/docs ./docs
 COPY --from=builder /app/README.md ./README.md
@@ -32,4 +31,4 @@ EXPOSE 3001
 
 ENV PORT 3001
 
-CMD ["npm", "start", "--workspace=@imagineclub/admin"]
+CMD ["npm", "start", "--workspace=admin"]

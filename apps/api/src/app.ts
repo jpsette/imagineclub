@@ -1,162 +1,176 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { randomUUID } from 'crypto';
+import pg from 'pg';
 
 const server = Fastify({
-    logger: true
+  logger: true,
 });
 
 server.register(cors, {
-    origin: true
+  origin: true,
 });
 
-// TYPES
-interface Post {
-    id: string;
-    title: string;
-    slug: string;
-    excerpt?: string;
-    content?: string;
-    coverImageUrl?: string;
-    status: 'draft' | 'published';
-    featured: boolean;
-    publishedAt?: string | null;
-    createdAt: string;
-    updatedAt: string;
+function getPool() {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set');
+
+  const u = new URL(url);
+
+  return new pg.Pool({
+    host: u.hostname,
+    port: u.port ? Number(u.port) : 5432,
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: u.pathname.replace(/^\//, ''),
+    ssl: { rejectUnauthorized: false },
+  });
 }
 
-// IN-MEMORY STORE (Mock DB)
-const posts: Post[] = [];
+const pool = getPool();
 
-// HELPERS
-const requireAdmin = async (request: any, reply: any) => {
-    const token = request.headers['x-admin-token'];
-    if (token !== process.env.ADMIN_TOKEN) {
-        reply.code(401).send({ message: 'Unauthorized' });
-        throw new Error('Unauthorized');
-    }
-};
-
-// ROUTES
-
-// 1. Health
-server.get('/health', async (request, reply) => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+server.get('/health', async () => {
+  return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// 2. Public: List News (Published only)
-server.get('/news', async (request, reply) => {
-    const { limit } = request.query as any;
-    let results = posts
-        .filter(p => p.status === 'published')
-        .sort((a, b) => new Date(b.publishedAt!).getTime() - new Date(a.publishedAt!).getTime());
-
-    if (limit) {
-        results = results.slice(0, Number(limit));
-    }
-    return results; // Return array directly as per "existing" behavior implies
+server.get('/db-health', async (request, reply) => {
+  try {
+    const r = await pool.query('select now() as now');
+    return { status: 'ok', now: r.rows?.[0]?.now };
+  } catch (err: any) {
+    request.log.error({ err }, 'db-health failed');
+    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+  }
 });
 
-// 3. Public: Get Post by Slug
-server.get('/news/:slug', async (request, reply) => {
-    const { slug } = request.params as any;
-    const post = posts.find(p => p.slug === slug && p.status === 'published');
-    if (!post) {
-        return reply.code(404).send({ message: 'Post not found' });
-    }
-    return post;
-});
 
-// 4. Admin: Create Post
+function getAdminToken(request: any) {
+  const auth = (request.headers?.authorization || '') as string;
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+
+  const x = request.headers?.['x-admin-token'];
+  if (typeof x === 'string') return x.trim();
+
+  return '';
+}
+
+async function requireAdmin(request: any, reply: any) {
+  const expected = process.env.ADMIN_TOKEN || '';
+  const got = getAdminToken(request);
+
+  if (!expected || got !== expected) {
+    return reply.code(401).send({ status: 'error', message: 'unauthorized' });
+  }
+}
+
 server.post('/admin/posts', { preHandler: requireAdmin }, async (request, reply) => {
-    const body = request.body as any;
+  const body = (request.body || {}) as any;
 
-    // Validation
-    if (!body.title || !body.slug) {
-        return reply.code(400).send({ message: 'Title and slug are required' });
-    }
+  const title = String(body.title || '').trim();
+  const slug = String(body.slug || '').trim();
 
-    // Slug conflict check (simulating Postgres 23505)
-    if (posts.find(p => p.slug === body.slug)) {
-        return reply.code(409).send({ code: '23505', message: 'slug already exists' });
-    }
+  if (!title || !slug) {
+    return reply.code(400).send({ status: 'error', message: 'title and slug are required' });
+  }
 
-    const now = new Date().toISOString();
-    const newPost: Post = {
-        id: randomUUID(),
-        title: body.title,
-        slug: body.slug,
-        excerpt: body.excerpt || '',
-        content: body.content || '',
-        coverImageUrl: body.coverImageUrl || '',
-        status: body.status || 'draft',
-        featured: body.featured || false,
-        publishedAt: body.status === 'published' ? now : null,
-        createdAt: now,
-        updatedAt: now,
-    };
+  const excerpt = body.excerpt != null ? String(body.excerpt) : null;
+  const content = body.content != null ? String(body.content) : null;
+  const coverImageUrl = body.coverImageUrl != null ? String(body.coverImageUrl) : null;
 
-    posts.push(newPost);
-    return newPost;
+  const status = String(body.status || 'draft');
+  const featured = Boolean(body.featured || false);
+
+  let publishedAt = body.publishedAt ? new Date(body.publishedAt) : null;
+  if (status === 'published' && !publishedAt) publishedAt = new Date();
+
+  try {
+    const r = await pool.query(
+      `
+      insert into posts
+        (title, slug, excerpt, content, cover_image_url, status, featured, published_at)
+      values
+        ($1,$2,$3,$4,$5,$6,$7,$8)
+      returning
+        id, title, slug, excerpt, cover_image_url as "coverImageUrl",
+        status, featured,
+        published_at as "publishedAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      `,
+      [title, slug, excerpt, content, coverImageUrl, status, featured, publishedAt]
+    );
+
+    return reply.code(201).send(r.rows[0]);
+  } catch (err: any) {
+    request.log.error({ err }, 'admin create post failed');
+    const msg = err?.code == '23505' ? 'slug already exists' : (err?.message ?? 'db error');
+    return reply.code(400).send({ status: 'error', message: msg });
+  }
 });
 
-// 5. Admin: Get Post by ID
-server.get('/admin/posts/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as any;
-    const post = posts.find(p => p.id === id);
-    if (!post) {
-        return reply.code(404).send({ message: 'Post not found' });
-    }
-    return post;
+server.get('/news', async (request, reply) => {
+  const limitRaw = (request.query as any)?.limit;
+  const limit = Math.max(1, Math.min(50, Number(limitRaw ?? 20)));
+
+  try {
+    const r = await pool.query(
+      `
+      select
+        id, title, slug, excerpt, cover_image_url as "coverImageUrl",
+        status, featured,
+        published_at as "publishedAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      from posts
+      where status = 'published'
+      order by published_at desc nulls last, created_at desc
+      limit $1
+      `,
+      [limit]
+    );
+
+    return { items: r.rows, limit };
+  } catch (err: any) {
+    request.log.error({ err }, 'news list failed');
+    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+  }
 });
 
-// 6. Admin: Update Post
-server.patch('/admin/posts/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as any;
-    const body = request.body as any;
 
-    const postIndex = posts.findIndex(p => p.id === id);
-    if (postIndex === -1) {
-        return reply.code(404).send({ message: 'Post not found' });
-    }
+server.get('/news/:slug', async (request, reply) => {
+  const slug = String((request.params as any)?.slug || '').trim();
+  if (!slug) return reply.code(400).send({ status: 'error', message: 'slug is required' });
 
-    const currentPost = posts[postIndex];
+  try {
+    const r = await pool.query(
+      `
+      select
+        id, title, slug, excerpt, content, cover_image_url as "coverImageUrl",
+        status, featured,
+        published_at as "publishedAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      from posts
+      where status = 'published' and slug = $1
+      limit 1
+      `,
+      [slug]
+    );
 
-    // Slug conflict check if changing slug
-    if (body.slug && body.slug !== currentPost.slug) {
-        if (posts.find(p => p.slug === body.slug)) {
-            return reply.code(409).send({ code: '23505', message: 'slug already exists' });
-        }
-    }
-
-    // PublishedAt logic
-    let newPublishedAt = currentPost.publishedAt;
-    if (body.status === 'published' && currentPost.status !== 'published') {
-        newPublishedAt = body.publishedAt || new Date().toISOString();
-    } else if (body.status === 'draft') {
-        newPublishedAt = null; // As per rule
-    } else if (body.publishedAt !== undefined) {
-        newPublishedAt = body.publishedAt;
-    }
-
-    const updatedPost = {
-        ...currentPost,
-        ...body,
-        publishedAt: newPublishedAt,
-        updatedAt: new Date().toISOString()
-    };
-
-    posts[postIndex] = updatedPost;
-    return updatedPost;
+    if (!r.rows?.length) return reply.code(404).send({ status: 'error', message: 'not found' });
+    return r.rows[0];
+  } catch (err: any) {
+    request.log.error({ err }, 'news get failed');
+    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+  }
 });
 
 const start = async () => {
-    try {
-        await server.listen({ port: 3000, host: '0.0.0.0' });
-    } catch (err) {
-        server.log.error(err);
-        process.exit(1);
-    }
+  try {
+    await server.listen( { port: 3000, host: '0.0.0.0' });
+  } catch (err) {
+    server.log.error(err);
+    process.exit(1);
+  }
 };
 
 start();

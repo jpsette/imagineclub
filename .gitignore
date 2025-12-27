@@ -22,3 +22,6 @@ out/
 
 # turborepo cache
 .turbo/
+
+# allow env template
+!.env.example
