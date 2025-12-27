@@ -21,13 +21,16 @@ export default function RootLayout({
                     <nav>
                         <ul style={{ listStyle: 'none' }}>
                             <li style={{ marginBottom: '8px' }}>
-                                <a href="/" style={{ display: 'block', padding: '8px 12px', borderRadius: '4px', background: '#eef2ff', color: '#6366f1', fontWeight: 500 }}>Overview</a>
+                                <a href="/" style={{ display: 'block', padding: '8px 12px', borderRadius: '4px', color: '#666' }}>Overview</a>
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                                <a href="/posts" style={{ display: 'block', padding: '8px 12px', borderRadius: '4px', color: '#666' }}>Posts</a>
+                                <div style={{ paddingLeft: '16px', marginTop: '4px' }}>
+                                    <a href="/posts/new" style={{ display: 'block', padding: '4px 0', fontSize: '14px', color: '#6366f1' }}>+ New Post</a>
+                                </div>
                             </li>
                             <li style={{ marginBottom: '8px' }}>
                                 <a href="/docs" style={{ display: 'block', padding: '8px 12px', borderRadius: '4px', color: '#666' }}>Documentation</a>
-                            </li>
-                            <li style={{ marginBottom: '8px' }}>
-                                <a href="#" style={{ display: 'block', padding: '8px 12px', borderRadius: '4px', color: '#666' }}>Settings</a>
                             </li>
                         </ul>
                     </nav>
