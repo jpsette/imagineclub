@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { publicFetch } from '../../lib/api';
 
+export const dynamic = 'force-dynamic';
+
 type Post = {
   id: string;
   title: string;
@@ -8,47 +10,78 @@ type Post = {
   excerpt: string | null;
   status: 'draft' | 'published';
   featured: boolean;
-  publishedAt?: string | null;
-  createdAt?: string;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
+function isPostsResponse(x: unknown): x is { items: Post[] } {
+  return !!x && typeof x === 'object' && Array.isArray((x as any).items);
+}
+
 export default async function PostsPage() {
-  const data = await publicFetch<{ items: Post[]; limit: number }>('/news');
+  const data = await publicFetch('/news?limit=50');
+  const items: Post[] = isPostsResponse(data) ? data.items : [];
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>Posts</h1>
-        <Link href="/posts/new" style={{ padding: '10px 14px', borderRadius: 8, background: '#6366f1', color: '#fff' }}>
+
+        <Link
+          href="/posts/new"
+          style={{ padding: '10px 14px', borderRadius: 8, background: '#6366f1', color: '#fff', textDecoration: 'none' }}
+        >
           + New Post
         </Link>
       </div>
 
-      <div style={{ border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', gap: 12, padding: 12, background: '#fafafa', fontWeight: 600 }}>
-          <div>Title</div>
-          <div>Slug</div>
-          <div>Status</div>
-          <div>Featured</div>
-        </div>
+      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead style={{ background: '#f9fafb' }}>
+            <tr>
+              <th style={{ textAlign: 'left', padding: 12, fontSize: 12, color: '#6b7280' }}>Title</th>
+              <th style={{ textAlign: 'left', padding: 12, fontSize: 12, color: '#6b7280' }}>Slug</th>
+              <th style={{ textAlign: 'left', padding: 12, fontSize: 12, color: '#6b7280' }}>Featured</th>
+              <th style={{ textAlign: 'left', padding: 12, fontSize: 12, color: '#6b7280' }}>Published</th>
+              <th style={{ textAlign: 'left', padding: 12, fontSize: 12, color: '#6b7280' }}>Actions</th>
+            </tr>
+          </thead>
 
-        {data.items.length === 0 ? (
-          <div style={{ padding: 12, color: '#666' }}>Nenhum post publicado ainda.</div>
-        ) : (
-          data.items.map((p) => (
-            <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', gap: 12, padding: 12, borderTop: '1px solid #eee' }}>
-              <div style={{ fontWeight: 600 }}>{p.title}</div>
-              <div style={{ color: '#555' }}>{p.slug}</div>
-              <div>{p.status}</div>
-              <div>{p.featured ? '✅' : '—'}</div>
-            </div>
-          ))
-        )}
+          <tbody>
+            {items.map((p) => (
+              <tr key={p.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                <td style={{ padding: 12, fontWeight: 600 }}>{p.title}</td>
+                <td style={{ padding: 12, color: '#374151' }}>{p.slug}</td>
+                <td style={{ padding: 12 }}>{p.featured ? 'Yes' : 'No'}</td>
+                <td style={{ padding: 12, color: '#374151' }}>
+                  {p.publishedAt ? new Date(p.publishedAt).toLocaleString() : '—'}
+                </td>
+                <td style={{ padding: 12 }}>
+                  <Link
+                    href={`/posts/${p.id}/edit`}
+                    style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 600 }}
+                  >
+                    Editar
+                  </Link>
+                </td>
+              </tr>
+            ))}
+
+            {!items.length && (
+              <tr>
+                <td colSpan={5} style={{ padding: 16, color: '#6b7280' }}>
+                  Nenhum post publicado ainda.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <p style={{ marginTop: 12, color: '#666', fontSize: 13 }}>
-        * Por enquanto esta tela lista só os publicados (endpoint /news).
-      </p>
+      <div style={{ marginTop: 12, color: '#6b7280', fontSize: 12 }}>
+        * Por enquanto essa lista puxa de <code>/news</code> (somente publicados).
+      </div>
     </div>
   );
 }
