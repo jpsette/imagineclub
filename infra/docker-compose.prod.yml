@@ -1,4 +1,3 @@
-
 services:
   caddy:
     image: caddy:2.10.2-alpine
@@ -16,23 +15,17 @@ services:
       - api
 
   web:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.web
+    image: ghcr.io/jpsette/imagineclub-web:main
     restart: always
 
   admin:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.admin
+    image: ghcr.io/jpsette/imagineclub-admin:main
     restart: always
     env_file:
       - ./.env.prod
 
   api:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.api
+    image: ghcr.io/jpsette/imagineclub-api:main
     restart: always
     env_file:
       - ./.env.prod
