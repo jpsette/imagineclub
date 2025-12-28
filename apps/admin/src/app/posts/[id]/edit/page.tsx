@@ -23,7 +23,7 @@ export default async function EditPostPage({ params }: { params: { id: string } 
         <EditPostForm post={post} />
       </div>
     );
-  } catch (_err: unknown) {
+  } catch {
     return <div>Error loading post.</div>;
   }
 }
