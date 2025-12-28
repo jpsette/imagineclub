@@ -16,7 +16,9 @@ type Post = {
 };
 
 function isPostsResponse(x: unknown): x is { items: Post[] } {
-  return !!x && typeof x === 'object' && Array.isArray((x as any).items);
+  if (!x || typeof x !== 'object') return false;
+  const obj = x as Record<string, unknown>;
+  return Array.isArray(obj.items);
 }
 
 export default async function PostsPage() {
