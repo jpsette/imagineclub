@@ -1,15 +1,19 @@
+cd ~/Documents/APP/Imagineclub/imagineclub
+mkdir -p .github/workflows
+
+cat > .github/workflows/deploy.yml <<'YAML'
 name: Deploy (prod)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Deploy via SSH (pull images, no build on server)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -26,16 +30,12 @@ jobs:
 
             cd infra
 
-            # (Opcional mas recomendado) login no GHCR pra conseguir puxar as imagens
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
 
-            # Puxa as imagens já buildadas no GitHub Actions
             docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Sobe/atualiza os containers SEM buildar no servidor
-            docker compose -f docker-compose.prod.yml up -d
-
-            # Limpa imagens antigas que ficaram sobrando (evita encher disco)
             docker image prune -af
 
             docker compose -f docker-compose.prod.yml ps
+YAML
