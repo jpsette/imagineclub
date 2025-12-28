@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import pg from 'pg';
 
@@ -36,24 +36,25 @@ server.get('/db-health', async (request, reply) => {
   try {
     const r = await pool.query('select now() as now');
     return { status: 'ok', now: r.rows?.[0]?.now };
-  } catch (err: any) {
+  } catch (err: unknown) {
     request.log.error({ err }, 'db-health failed');
-    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+    const message = err instanceof Error ? err.message : 'db error';
+    return reply.code(500).send({ status: 'error', message });
   }
 });
 
-
-function getAdminToken(request: any) {
-  const auth = (request.headers?.authorization || '') as string;
+function getAdminToken(request: FastifyRequest): string {
+  const authRaw = request.headers.authorization;
+  const auth = typeof authRaw === 'string' ? authRaw : '';
   if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
 
-  const x = request.headers?.['x-admin-token'];
+  const x = request.headers['x-admin-token'];
   if (typeof x === 'string') return x.trim();
-
+  if (Array.isArray(x) && typeof x[0] === 'string') return x[0].trim();
   return '';
 }
 
-async function requireAdmin(request: any, reply: any) {
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
   const expected = process.env.ADMIN_TOKEN || '';
   const got = getAdminToken(request);
 
@@ -62,53 +63,72 @@ async function requireAdmin(request: any, reply: any) {
   }
 }
 
-server.post('/admin/posts', { preHandler: requireAdmin }, async (request, reply) => {
-  const body = (request.body || {}) as any;
+type PostStatus = 'draft' | 'published';
 
-  const title = String(body.title || '').trim();
-  const slug = String(body.slug || '').trim();
+type CreatePostBody = {
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  content?: string | null;
+  coverImageUrl?: string | null;
+  status?: PostStatus;
+  featured?: boolean;
+  publishedAt?: string | Date | null;
+};
 
-  if (!title || !slug) {
-    return reply.code(400).send({ status: 'error', message: 'title and slug are required' });
+server.post<{ Body: CreatePostBody }>(
+  '/admin/posts',
+  { preHandler: requireAdmin },
+  async (request, reply) => {
+    const body = request.body;
+
+    const title = String(body.title || '').trim();
+    const slug = String(body.slug || '').trim();
+
+    if (!title || !slug) {
+      return reply.code(400).send({ status: 'error', message: 'title and slug are required' });
+    }
+
+    const excerpt = body.excerpt != null ? String(body.excerpt) : null;
+    const content = body.content != null ? String(body.content) : null;
+    const coverImageUrl = body.coverImageUrl != null ? String(body.coverImageUrl) : null;
+
+    const status = String(body.status || 'draft') as PostStatus;
+    const featured = Boolean(body.featured || false);
+
+    let publishedAt: Date | null =
+      body.publishedAt ? new Date(body.publishedAt as string | number | Date) : null;
+    if (status === 'published' && !publishedAt) publishedAt = new Date();
+
+    try {
+      const r = await pool.query(
+        `
+        insert into posts
+          (title, slug, excerpt, content, cover_image_url, status, featured, published_at)
+        values
+          ($1,$2,$3,$4,$5,$6,$7,$8)
+        returning
+          id, title, slug, excerpt, cover_image_url as "coverImageUrl",
+          status, featured,
+          published_at as "publishedAt",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        `,
+        [title, slug, excerpt, content, coverImageUrl, status, featured, publishedAt]
+      );
+
+      return reply.code(201).send(r.rows[0]);
+    } catch (err: unknown) {
+      request.log.error({ err }, 'admin create post failed');
+      const e = err as { code?: string; message?: string };
+      const msg = e?.code === '23505' ? 'slug already exists' : (e?.message ?? 'db error');
+      return reply.code(400).send({ status: 'error', message: msg });
+    }
   }
+);
 
-  const excerpt = body.excerpt != null ? String(body.excerpt) : null;
-  const content = body.content != null ? String(body.content) : null;
-  const coverImageUrl = body.coverImageUrl != null ? String(body.coverImageUrl) : null;
-
-  const status = String(body.status || 'draft');
-  const featured = Boolean(body.featured || false);
-
-  let publishedAt = body.publishedAt ? new Date(body.publishedAt) : null;
-  if (status === 'published' && !publishedAt) publishedAt = new Date();
-
-  try {
-    const r = await pool.query(
-      `
-      insert into posts
-        (title, slug, excerpt, content, cover_image_url, status, featured, published_at)
-      values
-        ($1,$2,$3,$4,$5,$6,$7,$8)
-      returning
-        id, title, slug, excerpt, cover_image_url as "coverImageUrl",
-        status, featured,
-        published_at as "publishedAt",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      `,
-      [title, slug, excerpt, content, coverImageUrl, status, featured, publishedAt]
-    );
-
-    return reply.code(201).send(r.rows[0]);
-  } catch (err: any) {
-    request.log.error({ err }, 'admin create post failed');
-    const msg = err?.code == '23505' ? 'slug already exists' : (err?.message ?? 'db error');
-    return reply.code(400).send({ status: 'error', message: msg });
-  }
-});
-
-server.get('/news', async (request, reply) => {
-  const limitRaw = (request.query as any)?.limit;
+server.get<{ Querystring: { limit?: string } }>('/news', async (request, reply) => {
+  const limitRaw = request.query?.limit;
   const limit = Math.max(1, Math.min(50, Number(limitRaw ?? 20)));
 
   try {
@@ -129,15 +149,15 @@ server.get('/news', async (request, reply) => {
     );
 
     return { items: r.rows, limit };
-  } catch (err: any) {
+  } catch (err: unknown) {
     request.log.error({ err }, 'news list failed');
-    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+    const message = err instanceof Error ? err.message : 'db error';
+    return reply.code(500).send({ status: 'error', message });
   }
 });
 
-
-server.get('/news/:slug', async (request, reply) => {
-  const slug = String((request.params as any)?.slug || '').trim();
+server.get<{ Params: { slug: string } }>('/news/:slug', async (request, reply) => {
+  const slug = String(request.params.slug || '').trim();
   if (!slug) return reply.code(400).send({ status: 'error', message: 'slug is required' });
 
   try {
@@ -158,15 +178,16 @@ server.get('/news/:slug', async (request, reply) => {
 
     if (!r.rows?.length) return reply.code(404).send({ status: 'error', message: 'not found' });
     return r.rows[0];
-  } catch (err: any) {
+  } catch (err: unknown) {
     request.log.error({ err }, 'news get failed');
-    return reply.code(500).send({ status: 'error', message: err?.message ?? 'db error' });
+    const message = err instanceof Error ? err.message : 'db error';
+    return reply.code(500).send({ status: 'error', message });
   }
 });
 
 const start = async () => {
   try {
-    await server.listen( { port: 3000, host: '0.0.0.0' });
+    await server.listen({ port: 3000, host: '0.0.0.0' });
   } catch (err) {
     server.log.error(err);
     process.exit(1);
