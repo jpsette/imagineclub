@@ -6,8 +6,17 @@ const server = Fastify({
   logger: true,
 });
 
+import fastifyMultipart from '@fastify/multipart';
+import cmsAssetsRoutes from './routes/cmsAssets';
+
 server.register(cors, {
   origin: true,
+});
+
+server.register(fastifyMultipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
 });
 
 function getPool() {
@@ -28,9 +37,13 @@ function getPool() {
 
 const pool = getPool();
 
+
 server.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
+
+server.register(cmsAssetsRoutes, { pool });
+
 
 server.get('/db-health', async (request, reply) => {
   try {
