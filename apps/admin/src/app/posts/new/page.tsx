@@ -1,7 +1,13 @@
+"use client";
+
 import Link from 'next/link';
 import { createPost } from '../actions';
+import { useState } from 'react';
+import RichTextEditor from '../../../components/RichTextEditor';
 
 export default function NewPostPage() {
+  const [content, setContent] = useState('');
+
   return (
     <div style={{ padding: 24, maxWidth: 720 }}>
       <div style={{ marginBottom: 16 }}>
@@ -28,7 +34,10 @@ export default function NewPostPage() {
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span>Content</span>
-          <textarea name="content" rows={8} style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }} />
+          {/* Hidden input to pass content to server action */}
+          <input type="hidden" name="content" value={content} />
+          {/* Editor */}
+          <RichTextEditor content={content} onChange={setContent} />
         </label>
 
         <label style={{ display: 'grid', gap: 6 }}>
