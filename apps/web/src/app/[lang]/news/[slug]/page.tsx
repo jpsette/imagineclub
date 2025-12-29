@@ -11,8 +11,16 @@ type NewsItem = {
 
 async function fetchPost(slug: string): Promise<NewsItem | null> {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://api:3000";
-  const slugEncoded = encodeURIComponent(slug);
-  const res = await fetch(`${base}/news/${slugEncoded}`, { cache: "no-store" });
+
+  // Evita double-encode (ex: "teste%20de%20imagem" virar "%2520")
+  let normalized = slug;
+  try {
+    normalized = decodeURIComponent(slug);
+  } catch {
+    // ignora se não conseguir decodificar
+  }
+
+  const res = await fetch(`${base}/news/${encodeURIComponent(normalized)}`, { cache: "no-store" });
   if (!res.ok) return null;
   return (await res.json()) as NewsItem;
 }
@@ -49,13 +57,10 @@ export default async function Page({
       ) : null}
 
       {post.content ? (
-        <div style={{ lineHeight: 1.7, fontSize: "18px" }}>
-          {post.content.split("\n").map((line, i) => (
-            <p key={i} style={{ marginBottom: 12 }}>
-              {line}
-            </p>
-          ))}
-        </div>
+        <div
+          style={{ lineHeight: 1.7, fontSize: "18px" }}
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
       ) : (
         <p style={{ color: "var(--text-secondary)" }}>Sem conteúdo.</p>
       )}
