@@ -150,6 +150,43 @@ type PatchPostBody = {
   featured?: boolean;
 };
 
+
+server.get<{ Querystring: { limit?: string; status?: PostStatus } }>(
+  '/admin/posts',
+  { preHandler: requireAdmin },
+  async (request, reply) => {
+    const rawLimit = request.query?.limit ? String(request.query.limit) : '50';
+    const limitNum = Number.parseInt(rawLimit, 10);
+    const limit = Number.isFinite(limitNum) ? Math.min(Math.max(limitNum, 1), 200) : 50;
+
+    const status = request.query?.status ? (String(request.query.status) as PostStatus) : null;
+
+    try {
+      const r = await pool.query(
+        `
+        select
+          id, title, slug, excerpt, content, cover_image_url as "coverImageUrl",
+          status, featured,
+          published_at as "publishedAt",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        from posts
+        where ($2::text is null or status = $2)
+        order by created_at desc
+        limit $1
+        `,
+        [limit, status]
+      );
+
+      return reply.send({ items: r.rows });
+    } catch (err: unknown) {
+      request.log.error({ err }, 'admin list posts failed');
+      const message = err instanceof Error ? err.message : 'db error';
+      return reply.code(500).send({ status: 'error', message });
+    }
+  }
+);
+
 server.get<{ Params: { id: string } }>(
   '/admin/posts/:id',
   { preHandler: requireAdmin },
