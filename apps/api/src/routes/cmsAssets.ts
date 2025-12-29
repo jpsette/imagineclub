@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { uploadFile, deleteFile } from '../services/s3';
 import { Pool } from 'pg';
 
@@ -40,7 +40,7 @@ export default async function cmsAssetsRoutes(server: FastifyInstance, options: 
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
-        const id = uuidv4();
+        const id = randomUUID();
         const key = `uploads/${year}/${month}/${id}.${ext}`;
 
         // 3. Upload to S3
