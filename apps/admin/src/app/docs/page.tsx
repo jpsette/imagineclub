@@ -5,8 +5,6 @@ import { marked } from 'marked';
 async function getDocContent(filename: string) {
     // Security: only allow reading from allowed paths in docs
     const docsDir = path.resolve(process.cwd(), '../../docs');
-    // Fallback to reading from local README if needed
-    const allowedFiles = ['design-system.md', 'README.md', 'MONOREPO.md', 'UI_RULES.md'];
 
     // Note: specific mapping for project root files
     let filePath;
@@ -19,7 +17,7 @@ async function getDocContent(filename: string) {
     try {
         const content = fs.readFileSync(filePath, 'utf8');
         return marked(content);
-    } catch (err) {
+    } catch {
         return '<h1>Document not found</h1><p>The requested document could not be loaded.</p>';
     }
 }

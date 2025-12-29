@@ -53,6 +53,12 @@ export default function RootLayout({
               </li>
 
               <li style={{ marginBottom: "8px" }}>
+                <a href="/media" style={{ display: "block", padding: "8px 12px", borderRadius: "4px", color: "#666" }}>
+                  Media Library
+                </a>
+              </li>
+
+              <li style={{ marginBottom: "8px" }}>
                 <a href="/docs" style={{ display: "block", padding: "8px 12px", borderRadius: "4px", color: "#666" }}>
                   Documentation
                 </a>

@@ -1,4 +1,8 @@
+"use client";
+
 import { updatePost } from '../../actions';
+import { useState } from 'react';
+import RichTextEditor from '../../../../components/RichTextEditor';
 
 type Post = {
   id: string;
@@ -11,6 +15,8 @@ type Post = {
 };
 
 export default function EditPostForm({ post }: { post: Post }) {
+  const [content, setContent] = useState(post.content ?? '');
+
   return (
     <form action={updatePost} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <input type="hidden" name="id" value={post.id} />
@@ -47,12 +53,8 @@ export default function EditPostForm({ post }: { post: Post }) {
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span style={{ fontWeight: 600 }}>Content</span>
-        <textarea
-          name="content"
-          defaultValue={post.content ?? ''}
-          rows={10}
-          style={{ padding: 10, borderRadius: 8, border: '1px solid #e5e7eb', fontFamily: 'inherit' }}
-        />
+        <input type="hidden" name="content" value={content} />
+        <RichTextEditor content={content} onChange={setContent} />
       </label>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
