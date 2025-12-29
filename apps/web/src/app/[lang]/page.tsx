@@ -119,7 +119,7 @@ export default async function Page({ params }: { params: { lang: "en" | "pt" } }
                     </p>
                   ) : null}
 
-                  <a href={`/${lang}/news/${item.slug}`} className="btn btn-ghost" style={{ fontSize: "14px" }}>
+                  <a href={`/${lang}/news/${encodeURIComponent(item.slug)}`} className="btn btn-ghost" style={{ fontSize: "14px" }}>
                     {t.heroProps.cta}
                   </a>
                 </article>
