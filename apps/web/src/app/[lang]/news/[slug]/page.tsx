@@ -11,7 +11,8 @@ type NewsItem = {
 
 async function fetchPost(slug: string): Promise<NewsItem | null> {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://api:3000";
-  const res = await fetch(`${base}/news/${encodeURIComponent(slug)}`, { cache: "no-store" });
+  const slugEncoded = encodeURIComponent(slug);
+  const res = await fetch(`${base}/news/${slugEncoded}`, { cache: "no-store" });
   if (!res.ok) return null;
   return (await res.json()) as NewsItem;
 }
